@@ -9,12 +9,15 @@ library(gganimate)
 install.packages("plotly")
 library(plotly)
 library(lubridate)
+install.packages("htmlwidgets")
+library(htmlwidgets)
 
 ## Reading data and adding health board column for shape join
 
 wales_beds <- read_csv("C:/Users/Student User/Downloads/wales_beds.csv") %>%  # all wales data
   mutate(`General beds percentage occupied` = `General and acute beds occupied`/`General and acute beds available`,
-         `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`)
+         `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`) %>%
+  lubridate::parse_date_time(wales_beds, orders = "d-b-y", locale = "uk")
   #wales_beds$Date <- as.Date(wales_beds$Date, format = "%d-%b-%y")
 
 abu_beds <- read_csv("C:/Users/Student User/Downloads/abu_beds.csv") %>%
@@ -48,10 +51,10 @@ shapes <- read_sf("C:/Users/Student User/Downloads/Local_Health_Boards__April_20
 # Bind data frames ready to join to shape file and add percentage columns
 allhb_beds <- rbind(abu_beds, bcu_beds, cv_beds, ctm_beds, hd_beds, powys_beds, swansea_beds) %>%
 mutate(`General beds percentage occupied` = `General and acute beds occupied`/`General and acute beds available`,
-       `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`)
+       `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`) %>%
   #dmy(allhb_beds$Date)
   #as.Date(allhb_beds$Date, format = "%d-%b-%y")
-
+  lubridate::parse_date_time(allhb_beds, orders = "d-b-y", locale = "uk")
 
 ## Plotting
 
