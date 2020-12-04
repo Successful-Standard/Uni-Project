@@ -2,22 +2,24 @@ library(tidyverse)
 library(sf)
 library(leaflet)
 library(sp)
-install.packages("gifski")
-library(gifski)
-install.packages("gganimate")
+
 library(gganimate)
 install.packages("plotly")
 library(plotly)
 library(lubridate)
-install.packages("htmlwidgets")
-library(htmlwidgets)
+
+library(scales)
 
 ## Reading data and adding health board column for shape join
 
 wales_beds <- read_csv("C:/Users/Student User/Downloads/wales_beds.csv") %>%  # all wales data
   mutate(`General beds percentage occupied` = `General and acute beds occupied`/`General and acute beds available`,
-         `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`) %>%
-  lubridate::parse_date_time(wales_beds, orders = "d-b-y", locale = "uk")
+         `General beds percentage occupied` = `General beds percentage occupied` * 100,
+         `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`,
+         `Percentage of general occupied beds by COVID` = scales::percent(`Percentage of general occupied beds by COVID`),
+         `Invasive beds occupied percentage` = `Invasive ventilated bed occupied`/`Invasive ventilated beds available`,
+         `Invasive beds occupied percentage` = `Invasive beds occupied percentage` * 100,
+  ldate = lubridate::parse_date_time(`Date`, orders = "d-b-Y", locale = "uk"))
   #wales_beds$Date <- as.Date(wales_beds$Date, format = "%d-%b-%y")
 
 abu_beds <- read_csv("C:/Users/Student User/Downloads/abu_beds.csv") %>%
@@ -51,40 +53,74 @@ shapes <- read_sf("C:/Users/Student User/Downloads/Local_Health_Boards__April_20
 # Bind data frames ready to join to shape file and add percentage columns
 allhb_beds <- rbind(abu_beds, bcu_beds, cv_beds, ctm_beds, hd_beds, powys_beds, swansea_beds) %>%
 mutate(`General beds percentage occupied` = `General and acute beds occupied`/`General and acute beds available`,
-       `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`) %>%
-  #dmy(allhb_beds$Date)
-  #as.Date(allhb_beds$Date, format = "%d-%b-%y")
-  lubridate::parse_date_time(allhb_beds, orders = "d-b-y", locale = "uk")
+       `General beds percentage occupied` = `General beds percentage occupied` * 100,
+       `Percentage of general occupied beds by COVID` = `General and acute beds occupied by COVID-19 case`/`General and acute beds occupied`,
+       `Percentage of general occupied beds by COVID` = `Percentage of general occupied beds by COVID` * 100,
+       `Invasive beds occupied percentage` = `Invasive ventilated bed occupied`/`Invasive ventilated beds available`,
+       `Invasive beds occupied percentage` = `Invasive beds occupied percentage` * 100,
+       ldate = lubridate::parse_date_time(`Date`, orders = "d-b-y", locale = "uk"))
 
 ## Plotting
 
-# plot line charts of beds occupied percentage for each HB
-p1 <- ggplot(allhb_beds, aes(x = `Date`, y = `General beds percentage occupied`, group = 1)) +
-        geom_line() +
-        facet_wrap(~health_board)
+# plot line charts of general beds occupied percentage for each HB
+p1 <- ggplot(allhb_beds, aes(x = `ldate`, y = `General beds percentage occupied`, group = 1)) +
+  geom_line() +
+  theme_bw() +
+  facet_wrap(~health_board, scales = "free") +
+  labs(
+    x = "Date",
+    y = "Percentage of beds occupied",
+    title = "Percentage of general & acute beds occupied in health boards"
+  )
 ggplotly(
   p = p1
 )
 
-# Plot bar charts of ventilated beds available for each HB
-allhb_beds %>%
-  ggplot(aes(x = Date, y = `Invasive ventilated beds available`)) + 
-  geom_bar(stat = "identity") +
-  facet_wrap(~health_board)
+# plot line charts of general beds occupied percentage for Wales
+p2 <- ggplot(wales_beds, aes(x = `ldate`, y = `General beds percentage occupied`, group = 1)) +
+  geom_line() +
+  theme_bw() +
+  labs(
+    x = "Date",
+    y = "Percentage of beds occupied",
+    title = "Percentage of general & acute beds occupied in Wales"
+  )
+ggplotly(
+  p = p2
+)
 
-# Plot All Wales percentage beds occupied line chart
-wales_beds %>%
-  ggplot(aes(x = Date, y = `General beds percentage occupied`, group = 1)) +
-  geom_line()
-  #add a line for April 20th Nightingale hosp.
+# plot line charts of ventilated beds percentage for health boards
+p3 <- ggplot(allhb_beds, aes(x = `ldate`, y = `Invasive beds occupied percentage`, group = 1)) +
+  geom_line() +
+  facet_wrap(~health_board, scales = "free") +
+  theme_bw() +
+  labs(
+    x = "Date",
+    y = "Percentage of beds occupied",
+    title = "Percentage of ventilated beds occupied in health boards"
+  )
+ggplotly(
+  p = p3
+)
 
-
+# plot line charts of ventilated beds percentage for wales
+p4 <- ggplot(wales_beds, aes(x = `ldate`, y = `Invasive beds occupied percentage`, group = 1)) +
+  geom_line() +
+  theme_bw() +
+  labs(
+    x = "Date",
+    y = "Percentage of beds occupied",
+    title = "Percentage of ventilated beds occupied in Wales"
+  )
+ggplotly(
+  p = p4
+)
 
 # Joining all HB data to shape file
 joined_data <- sp::merge(shapes, allhb_beds, by.x = "lhb19nm", by.y = "health_board")
 
 # Attempt at making interactive map
-pal <- colorNumeric(c("red", "green"), joined_data$`General and acute beds occupied`)
+pal <- colorNumeric(c("green", "red"), joined_data$`General and acute beds occupied`)
 
 # Leaflet map
 longitude <- c(-3.0318, -4.1293, -3.3000, -3.3700, -4.9713, -3.2323, -3.8142)
